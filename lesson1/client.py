@@ -1,41 +1,91 @@
-from socket import *
+import socket
+import sys
+import time
+import user
+import json
+import struct
 
-class Client(object):
-    def __init__(self):
-        try:
-            self.host = 'localhost'
-            self.port = 7777
-            self.data = ''
-            self.create_socket(self.host, self.port)
-        except:
-            print('There was a problem')
-
-    def create_socket(self, addr, port):
-        self.s = socket(AF_INET, SOCK_STREAM)
-        self.s.connect((addr, port))
+host = 'localhost'
+port = 7777
 
 
-    def send_message(self, message):
-        self.s.send(message.encode())
-        self.data = self.s.recv(1024).decode()
-        self.s.close()
+class Client():
+    def __init__(self, host, port, sock=None):
+        if sock is None:
+            self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        else:
+            self.sock = sock
+        self.host = host
+        self.port = port
 
-# def send_input(message):
-#     s = socket(AF_INET, SOCK_STREAM)
-#     host = 'localhost'
-#     port = 7777
-#     s.connect((host, port))
-#     s.send(message.encode())
-#     data = s.recv(1024).decode()
-#     print(data)
-#     s.close()
+    def connect(self, host, port):
+        self.sock.connect((host, port))
 
-def main():
-    client = Client()
-    r = input("Please, enter a message: ")
-    while r != 'exit':
-        client.send_message(r)
-        print(client.data)
+    def send(self, msg):
+        self.connect(self.host, self.port)
+        totalsent = 0
+        while totalsent < len(msg):
+            sent = self.sock.send(msg[totalsent:])
+            if sent == 0:
+                raise RuntimeError("socket conneciton broken")
+            totalsent = totalsent + sent
+
+    def receive(self):
+        # chunks = []
+        # bytes_recieved = 0
+        # while bytes_recieved < len(self.msg):
+        #     chunk = self.sock.recv(min(len(self.msg) - bytes_recieved, 1024))
+        #     if chunk == b'':
+        #         raise RuntimeError("socket connection broken")
+        #     chunks.append(chunk)
+        #     bytes_recieved = bytes_recieved + len(chunk)
+        # return b''.join(chunks)
+
+        raw_msglen = self.recvall(self.sock, 4)
+        if not raw_msglen:
+            return None
+        msglen = struct.unpack('>I', raw_msglen)[0]
+        return self.recvall(self.sock, msglen)
+
+    def send_presence(self):
+        presence_message = {
+            "action": "presence",
+            "time": time.ctime(),
+            "user": {
+                "account_name": user.account_name,
+                "status": user.status
+            }
+        }
+        self.send(json.dumps(presence_message).encode('utf-8'))
+        status = self.sock.recv(1024).decode()
+        print(status)
+
+    def login(self):
+        login_data = {
+            "action": "authenticate",
+            "time": time.ctime(),
+            "user": {
+                "account_name": user.account_name,
+                "password": user.password
+            }
+        }
+        self.send(json.dumps(login_data).encode('utf-8'))
+        status = self.sock.recv(1024).decode()
+        print(status)
+
+    def recvall(self, sock, n):
+        data = b''
+        while len(data) < n:
+            packet = sock.recv(n - len(data))
+            if not packet:
+                return None
+        return data
+
 
 if __name__ == '__main__':
-    main()
+    if len(sys.argv) > 1:
+        host = sys.argv[1]
+        port = int(sys.argv[2])
+    client = Client(host, port)
+    client.login()
+    client.send_presence()

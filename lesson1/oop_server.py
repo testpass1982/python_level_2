@@ -1,4 +1,13 @@
 from socket import *
+import codes
+import json
+import struct
+
+users = {
+    'Anatoliy': 'password',
+    'Popov': 'testpass',
+    'Ivanov': 'ivanov_password'
+}
 
 class Connect(object):
     def __init__(self):
@@ -15,12 +24,22 @@ class Connect(object):
             connection, client_address = self.s.accept()
             print('Client connected')
             try:
-                data = connection.recv(16).decode()
+                data = connection.recv(1024).decode()
+                data = json.loads(data)
                 print(data)
-                r = 'Recieved: ' + data
-                connection.send(r.encode())
+                if data['action'] == 'presence':
+                    connection.send(codes.OK.encode())
+                if data['action'] == 'authenticate':
+                    if data['user']['account_name'] in users:
+                        connection.send(codes.ACCEPTED.encode())
+                    else:
+                        connection.send(codes.WRONG_LOGIN_OR_PASSWORD.encode())
             finally:
                 connection.close()
+
+    def prefix_len(self, msg):
+        msg = struct.pack('>I', len(msg)) + bytes(msg, 'utf-8')
+        return msg
 
 def main():
     connect = Connect()
