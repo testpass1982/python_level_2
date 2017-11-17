@@ -1,0 +1,14 @@
+PRESENCE = 'presence'
+MSG = 'msg'
+QUIT = 'quit'
+
+ACTIONS = (PRESENCE, MSG, QUIT)
+
+ACTION = 'action'
+TIME = 'time'
+
+BASIC_NOTICE = 100
+OK = 200
+ACCEPTED = 202
+WRONG_REQUEST = 400
+SERVER_ERROR = 500
